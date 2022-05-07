@@ -1,5 +1,5 @@
 [package]
-name = "actix-server"
+name = "todo_server"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.0.1"
+chrono = { version = "0.4.19", features = ["serde"] }
 derive_more = "0.99.17"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
+tokio = { version = "1.18.1", features = ["full"] }
+tokio-postgres = "0.7.6"

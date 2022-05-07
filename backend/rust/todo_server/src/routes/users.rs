@@ -1,12 +1,18 @@
 use actix_web::{web, Error, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use crate::routes::errors::TodoAppError;
+use chrono::{DateTime, Utc};
+use crate::UserId;
 
+// file for sql table creation 
+// ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
 struct User {
-    id: u32,
-    token: String,
+    id: UserId,
     username: String,
+    password: String,
+    deleted_at: Option<DateTime<Utc>>,
+    token: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -57,8 +63,10 @@ pub async fn create_user(body: web::Json<LoginInfo>) -> Result<HttpResponse, Err
     let new_token = "createusersjHdsewROUirwe".to_string();
     let new_user = User {
         id: new_id,
-        token: new_token,
         username: body.username.clone(),
+        password: "pass".to_string(),
+        deleted_at: None,
+        token: new_token,
     };
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
@@ -91,8 +99,10 @@ pub async fn login(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
     let new_token = "loginsjHdsewROUirwe".to_string();
     let new_user = User {
         id: new_id,
-        token: new_token,
         username: body.username.clone(),
+        password: "pass".to_string(),
+        deleted_at: None,
+        token: new_token,
     };
     let response = LoginResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))

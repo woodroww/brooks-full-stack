@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use crate::routes::errors::TodoAppError;
+use chrono::{DateTime, Utc};
 
 #[derive(Serialize, Deserialize)]
 struct CreateTaskInfo {
@@ -16,14 +17,17 @@ struct CreateTaskResponse {
     data: CreateTaskInfo,
 }
 
+// file for sql table creation 
+// ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
-struct Task {
-    id: u32,
-    priority: Option<u32>,
+pub struct Task {
+    id: i32,
+    priority: Option<String>,
     title: String,
-    completed_at: Option<u32>,
-    deleted_at: Option<u32>,
-    user_id: u32,
+    completed_at: Option<DateTime<Utc>>,
+    description: String,
+    deleted_at: Option<DateTime<Utc>>,
+    user_id: i32,
     is_default: bool,
 }
 
@@ -103,7 +107,7 @@ localhost:3010/api/v1/tasks/8
 }
 */
 
-pub async fn get_task_id(req: HttpRequest, id: web::Path<u32>) -> Result<HttpResponse, TodoAppError> {
+pub async fn get_task_id(req: HttpRequest, id: web::Path<i32>) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
@@ -122,6 +126,7 @@ pub async fn get_task_id(req: HttpRequest, id: web::Path<u32>) -> Result<HttpRes
         priority: None,
         title: "what".to_string(),
         completed_at: None,
+        description: "task description".to_string(),
         deleted_at: None,
         user_id: 123,
         is_default: false,
