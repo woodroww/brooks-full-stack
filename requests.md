@@ -68,7 +68,7 @@ localhost:3000/api/v1/users/logout \
 {"message":"user logged out"}
 
 
-# make a task
+# create a task
 ## route: "/"
 
 curl -X POST \

@@ -1,6 +1,6 @@
-use actix_web::{post, web, error, Error, HttpResponse, HttpRequest};
-use derive_more::{Display, Error};
+use actix_web::{web, Error, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
+use crate::routes::errors::TodoAppError;
 
 #[derive(Serialize, Deserialize)]
 struct User {
@@ -15,7 +15,7 @@ struct CreateUserResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-struct LoginInfo {
+pub struct LoginInfo {
     username: String,
     password: String,
 }
@@ -29,15 +29,6 @@ struct LoginResponse {
 struct MessageResponse {
     message: String,
 }
-
-#[derive(Debug, Display, Error)]
-#[display(fmt = "users error: {}", name)]
-struct UsersError {
-    name: &'static str
-}
-
-// Use default implementation for `error_response()` method
-impl error::ResponseError for UsersError {}
 
 /*
 # create user
@@ -61,10 +52,7 @@ localhost:3010/api/v1/users \
 // Create user, create token from username, insert default tasks
 // return new user
 
-#[post("/")]
-async fn create_user(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
-    println!("actix server recieved username: {}", body.username);
-    println!("actix server recieved password: {}", body.password);
+pub async fn create_user(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
     let new_id = 1;
     let new_token = "createusersjHdsewROUirwe".to_string();
     let new_user = User {
@@ -81,7 +69,7 @@ async fn create_user(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> 
 ## route: "/login" 
 
 curl -X POST \
-localhost:3010/login \
+localhost:3010/api/v1/users/login \
 -H "Content-Type: application/json" \
 --data '{ "username": "woodroww", "password": "myfancypass" }'
 
@@ -98,10 +86,7 @@ localhost:3010/login \
 // get user from db, compare passwords, create login token
 // return user or error 500
 
-#[post("/login")]
-async fn login(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
-    println!("actix server recieved username: {}", body.username);
-    println!("actix server recieved password: {}", body.password);
+pub async fn login(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
     let new_id = 1;
     let new_token = "loginsjHdsewROUirwe".to_string();
     let new_user = User {
@@ -128,17 +113,16 @@ localhost:3010/api/v1/users/logout \
 // find and remove token from db
 // return message or error 500
 
-#[post("/logout")]
-async fn logout(req: HttpRequest) -> Result<HttpResponse, UsersError> {
+pub async fn logout(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(UsersError { name: "no x-auth-token string error" });
+            return Err(TodoAppError { name: "no x-auth-token string error" });
         }
     } else {
-        return Err(UsersError { name: "no x-auth-token error" });
+        return Err(TodoAppError { name: "no x-auth-token error" });
     }
     let response = MessageResponse { message: "user logged out".to_string() };
     Ok(HttpResponse::Ok().json(response))

@@ -1,15 +1,3 @@
-/* Routes
-/Users/matt/external_code/BrooksYew/brooks-full-stack/requests.md
-
-./user/
-./user/login
-./user/logout
-./tasks/
-./tasks/:taskId
-./tasks/:taskId/completed
-./tasks/:taskId/uncompleted
-*/
-
 mod routes;
 
 use actix_web::{App, HttpServer, web};
@@ -18,10 +6,14 @@ use actix_web::{App, HttpServer, web};
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new().service(
-            web::scope("/api/v1/users")
-            .service(routes::users::create_user)
-            .service(routes::users::login)
-            .service(routes::users::logout)
+            web::scope("/api/v1")
+            .route("/users", web::post().to(routes::users::create_user))
+            .route("/users/login", web::post().to(routes::users::login))
+            .route("/users/logout", web::post().to(routes::users::logout))
+            .route("/tasks", web::post().to(routes::tasks::create_task))
+            .route("/tasks/{id}", web::get().to(routes::tasks::get_task_id))
+            .route("/tasks/{id}/completed", web::put().to(routes::tasks::set_task_completed))
+            .route("/tasks/{id}/uncompleted", web::put().to(routes::tasks::set_task_uncompleted))
         )
     })
     .bind(("127.0.0.1", 3010))?
