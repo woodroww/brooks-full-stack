@@ -2,7 +2,7 @@ use actix_web::{web, Error, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use crate::routes::errors::TodoAppError;
 use chrono::{DateTime, Utc};
-use crate::UserId;
+use crate::database::{DBPool, UserId};
 
 // file for sql table creation 
 // ../../../../../database/init.sql
@@ -15,9 +15,17 @@ struct User {
     token: String,
 }
 
+// info returned from db_create_user
+#[derive(Serialize, Deserialize)]
+pub struct UserCreatedInfo {
+    pub id: UserId,
+    pub username: String,
+    pub token: String,
+}
+
 #[derive(Serialize, Deserialize)]
 struct CreateUserResponse {
-    data: User,
+    data: UserCreatedInfo,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -57,17 +65,14 @@ localhost:3010/api/v1/users \
 
 // Create user, create token from username, insert default tasks
 // return new user
+use crate::database::user_queries::db_create_user;
 
-pub async fn create_user(body: web::Json<LoginInfo>) -> Result<HttpResponse, Error> {
-    let new_id = 1;
-    let new_token = "createusersjHdsewROUirwe".to_string();
-    let new_user = User {
-        id: new_id,
-        username: body.username.clone(),
-        password: "pass".to_string(),
-        deleted_at: None,
-        token: new_token,
-    };
+pub async fn create_user(
+    body: web::Json<LoginInfo>,
+    pool: web::Data<DBPool>) -> Result<HttpResponse, Error> {
+
+    let new_token = "createuserToken".to_string();
+    let new_user = db_create_user(&body.username, &body.password, &new_token, &pool).await?;
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
 }

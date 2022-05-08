@@ -1,31 +1,16 @@
 use actix_web::{App, HttpServer, web};
 use todo_server::routes::users as user;
 use todo_server::routes::tasks as task;
-use todo_server::TodoDBConnectionManager;
-use tokio_postgres::{Config, NoTls};
-use mobc_postgres::PgConnectionManager;
-
-type Pool = mobc::Pool<TodoDBConnectionManager>;
-
-/*struct AppState {
-    db_pool: Pool,
-}*/
+use todo_server::database::create_pool;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
-    let mut config = Config::new();
-    config.host("localhost");
-    config.dbname("google_coursera");
-    config.user("matt");
-    config.port(666);
-
-    let manager = PgConnectionManager::new(config, NoTls);
-    let pool = Pool::builder().max_open(10).build(TodoDBConnectionManager);
+    let pool = create_pool("postgresql://matt@localhost/brooks").unwrap();
 
     HttpServer::new(move || {
         App::new()
-            //.app_data(pool.clone())
+            .data(pool.clone())
             .service( web::scope("/api/v1")
             .route("/users", web::post().to(user::create_user))
             .route("/users/login", web::post().to(user::login))
