@@ -2,7 +2,7 @@ use actix_web::{web, Error, HttpResponse, HttpRequest};
 use serde::{Deserialize, Serialize};
 use crate::routes::errors::TodoAppError;
 use chrono::{DateTime, Utc};
-use crate::database::{DBPool, UserId};
+use crate::database::UserId;
 
 // file for sql table creation 
 // ../../../../../database/init.sql
@@ -67,9 +67,11 @@ localhost:3010/api/v1/users \
 // return new user
 use crate::database::user_queries::db_create_user;
 
+use deadpool_postgres::Pool;
+
 pub async fn create_user(
     body: web::Json<LoginInfo>,
-    pool: web::Data<DBPool>) -> Result<HttpResponse, Error> {
+    pool: web::Data<Pool>) -> Result<HttpResponse, Error> {
 
     let new_token = "createuserToken".to_string();
     let new_user = db_create_user(&body.username, &body.password, &new_token, &pool).await?;

@@ -2,27 +2,32 @@
 // /Users/matt/Documents/Programming/rust/postgres-test/src/main.rs
 
 //use tokio_postgres::{NoTls, Error, SimpleQueryMessage};
-use crate::database::{get_db_con, DBPool, TodoDBError, UserId};
+use crate::database::UserId;
 use crate::routes::users::UserCreatedInfo;
+use crate::routes::errors::TodoAppError;
+
+use deadpool_postgres::Pool;
 
 pub async fn db_create_user(
     username: &str,
     password: &str,
     token: &str,
-    db_pool: &DBPool) -> Result<UserCreatedInfo, TodoDBError> {
+    db_pool: &Pool) -> Result<UserCreatedInfo, TodoAppError> {
 
-    let con = get_db_con(db_pool).await?;
+    let con = db_pool.get().await.unwrap();
     let sql = "INSERT INTO users (username, password, token) VALUES ($1, $2, $3)";
-    con.execute(sql, &[&username.to_string(), &password.to_string(), &token.to_string()])
-        .await
-        .map_err(TodoDBError::DBQueryError)?;
+    let err = con.execute(sql, &[&username.to_string(), &password.to_string(), &token.to_string()]).await;
 
-    let result = UserCreatedInfo {
-        id: 99,
-        username: username.to_string(),
-        token: token.to_string(),
-    };
-    Ok(result)
+    if err.is_ok() {
+        let result = UserCreatedInfo {
+            id: 99,
+            username: username.to_string(),
+            token: token.to_string(),
+        };
+        Ok(result)
+    } else {
+        Err(TodoAppError { name: "error from executing sql" })
+    }
 }
 
 pub fn db_hash_password(password: &str) {
