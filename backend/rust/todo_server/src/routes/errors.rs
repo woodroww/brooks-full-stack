@@ -1,6 +1,7 @@
 use derive_more::{Display, Error};
 use actix_web::error::ResponseError;
 
+// thiserror as alternatvie to dervie_more
 
 #[derive(Debug, Display, Error)]
 #[display(fmt = "users error: {}", name)]
