@@ -387,6 +387,7 @@ dependencies = [
  "deadpool-runtime",
  "num_cpus",
  "retain_mut",
+ "serde",
  "tokio",
 ]
 
@@ -398,6 +399,7 @@ checksum = "c668a58063c6331e3437e3146970943ad82b1b36169fd979bb2645ac2088209a"
 dependencies = [
  "deadpool",
  "log",
+ "serde",
  "tokio",
  "tokio-postgres",
 ]
@@ -953,6 +955,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebd6e8b7189a73169290e89bd24c771071f1012d8fe6f738f5226531f0b03d89"
 dependencies = [
  "bytes",
+ "chrono",
  "fallible-iterator",
  "postgres-protocol",
 ]
@@ -1274,6 +1277,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "time 0.1.44",
  "tokio-postgres",
 ]
 
