@@ -1,8 +1,9 @@
-use crate::database::UserId;
+use crate::database::{UserId, TodoDB, TodoDBError};
 use crate::routes::errors::TodoAppError;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use dotenv;
 
 // file for sql table creation
 // ../../../../../database/init.sql
@@ -71,16 +72,13 @@ localhost:3010/api/v1/users \
 
 // Create user, create token from username, insert default tasks
 // return new user
-use crate::database::user_queries::*;
-
-use deadpool_postgres::Pool;
 
 pub async fn create_user(
     body: web::Json<LoginInfo>,
-    pool: web::Data<Pool>,
+    db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, Error> {
-    let new_token = "createuserToken".to_string();
-    let new_user = db_create_user(&body.username, &body.password, &new_token, &pool).await?;
+    let new_token = create_token(&body.username).unwrap();
+    let new_user = db.db_create_user(&body.username, &body.password, &new_token).await?;
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
 }
@@ -109,9 +107,9 @@ localhost:3010/api/v1/users/login \
 
 pub async fn login(
     body: web::Json<LoginInfo>,
-    pool: web::Data<Pool>,
+    db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let result = db_get_by_username(&body.username, &pool).await;
+    let result = db.db_get_by_username(&body.username).await;
     match result {
         Ok(user) => Ok(HttpResponse::Ok().json(LoginResponse { data: user })),
         Err(error) => Err(error)
@@ -140,12 +138,12 @@ pub async fn logout(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
             println!("we have token: {}", token_string);
         } else {
             return Err(TodoAppError {
-                name: "no x-auth-token string error",
+                name: "no x-auth-token string error".to_string(),
             });
         }
     } else {
         return Err(TodoAppError {
-            name: "no x-auth-token error",
+            name: "no x-auth-token error".to_string(),
         });
     }
     let response = MessageResponse {
@@ -153,3 +151,88 @@ pub async fn logout(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
     };
     Ok(HttpResponse::Ok().json(response))
 }
+
+
+use jsonwebtoken::{encode, Header, EncodingKey};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UserClaims {
+    username: String,
+}
+// from js return jwt.sign(data, jwtSecret);
+fn create_token(username: &str) -> Result<String, TodoAppError> {
+
+    let secret = dotenv::var("JWT_SECRET");
+    match secret {
+        Ok(s) => {
+            //let data = UserClaims { username: username.to_string() };
+            let token = encode(&Header::default(), &username, &EncodingKey::from_secret(s.as_bytes())).unwrap();
+            Ok(token)
+        }
+        Err(_e) => {
+            return Err(TodoAppError{ name: "could not get secrect from env".to_string() });
+        }
+    }
+}
+
+
+mod test {
+
+    use std::process::Command;
+
+/*
+curl -X POST \
+localhost:3010/api/v1/users \
+-H "Content-Type: application/json" \
+--data '{ "username": "woodroww", "password": "myfancypass" }'
+*/
+
+    #[test]
+    fn create_user() {
+        let output = Command::new("curl")
+            .arg("-X")
+            .arg("POST")
+            .arg("localhost:3010/api/v1/users")
+            .arg("-H")
+            .arg("Content-Type: application/json")
+            .arg("--data")
+            .arg("{ \"username\": \"woodroww\", \"password\": \"myfancypass\" }")
+            .output()
+            .expect("failure");
+        let output_str = String::from_utf8(output.stdout).unwrap();
+        println!("output {}", output_str);
+        // here id and token are going to be different each time called
+        // as we are creating a new user
+        //let base_expected = r#"{"data":{"id":3,"username":"woodroww","token":""}}"#;
+
+        assert!(output_str.len() > 0);
+    }
+
+
+/*
+curl -X POST \
+localhost:3010/api/v1/users/login \
+-H "Content-Type: application/json" \
+--data '{ "username": "woodroww", "password": "myfancypass" }'
+*/
+
+    #[test]
+    fn login() {
+        let output = Command::new("curl")
+            .arg("-X")
+            .arg("POST")
+            .arg("localhost:3010/api/v1/users/login")
+            .arg("-H")
+            .arg("Content-Type: application/json")
+            .arg("--data")
+            .arg("{ \"username\": \"woodroww\", \"password\": \"myfancypass\" }")
+            .output()
+            .expect("failure");
+        let output_str = String::from_utf8(output.stdout).unwrap();
+        println!("output {}", output_str);
+        let expected = r#"{"data":{"id":2,"username":"woodroww","password":"myfancypass","deleted_at":null,"token":"createuserToken"}}"#;
+        assert_eq!(output_str, expected.to_string());
+    }
+
+}
+

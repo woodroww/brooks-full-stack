@@ -65,10 +65,10 @@ pub async fn create_task(req: HttpRequest) -> Result<HttpResponse, TodoAppError>
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error" });
+            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error" });
+        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
     }
     let title = "Title".to_string();
     let description = "Description".to_string();
@@ -113,10 +113,10 @@ pub async fn get_task_id(req: HttpRequest, id: web::Path<i32>) -> Result<HttpRes
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error" });
+            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error" });
+        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
     }
 
     let find_id = id.into_inner();
@@ -152,10 +152,10 @@ pub async fn set_task_completed(req: HttpRequest, id: web::Path<u32>) -> Result<
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error" });
+            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error" });
+        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
     }
     Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())))
 }
@@ -178,10 +178,10 @@ pub async fn set_task_uncompleted(req: HttpRequest, id: web::Path<u32>) -> Resul
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error" });
+            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error" });
+        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
     }
     Ok(HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner())))
 }

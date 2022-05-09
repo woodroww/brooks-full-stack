@@ -2,20 +2,13 @@ use actix_web::{App, HttpServer, web};
 use todo_server::routes::users as user;
 use todo_server::routes::tasks as task;
 
-use deadpool_postgres::{Config, ManagerConfig, RecyclingMethod, Runtime};
-use tokio_postgres::NoTls;
+use todo_server::database::TodoDB;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
-    // postgresql://matt@localhost/brooks
-    let mut config = Config::new();
-    config.dbname = Some("brooks".to_string());
-    config.user = Some("matt".to_string());
-    config.manager = Some(ManagerConfig { recycling_method: RecyclingMethod::Fast });
-    let pool = config.create_pool(Some(Runtime::Tokio1), NoTls).unwrap();
-
-    let data = web::Data::new(pool.clone());
+    let db = TodoDB::new();
+    let data = web::Data::new(db);
     HttpServer::new(move || {
         App::new()
             .app_data(data.clone())

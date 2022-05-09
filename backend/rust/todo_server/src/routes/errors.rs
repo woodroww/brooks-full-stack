@@ -3,8 +3,7 @@ use actix_web::error::ResponseError;
 
 #[derive(Debug, Error)]
 pub struct TodoAppError {
-    pub name: &'static str
-    //pub name: String,
+    pub name: String,
     //source: actix_web::error::Error,
 }
 
