@@ -17,4 +17,5 @@ time = "0.1.14"
 tokio-postgres = { version = "0.7.6", features = ["with-chrono-0_4"] }
 jsonwebtoken = "8.1.0"
 dotenv = "0.15.0"
+bcrypt = "0.13.0"
 

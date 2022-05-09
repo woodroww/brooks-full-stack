@@ -1,9 +1,11 @@
-use crate::database::{UserId, TodoDB, TodoDBError};
+use crate::database::{TodoDB, UserId};
 use crate::routes::errors::TodoAppError;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
+use actix_web::http::StatusCode;
+use actix_web::{web, Error, HttpRequest, HttpResponse, HttpResponseBuilder};
 use chrono::NaiveDateTime;
-use serde::{Deserialize, Serialize};
 use dotenv;
+use serde::{Deserialize, Serialize};
+use bcrypt::{hash, verify, DEFAULT_COST};
 
 // file for sql table creation
 // ../../../../../database/init.sql
@@ -18,7 +20,13 @@ pub struct User {
 
 impl Default for User {
     fn default() -> Self {
-        Self { id: Default::default(), username: Default::default(), password: Default::default(), deleted_at: Default::default(), token: Default::default() }
+        Self {
+            id: Default::default(),
+            username: Default::default(),
+            password: Default::default(),
+            deleted_at: Default::default(),
+            token: Default::default(),
+        }
     }
 }
 
@@ -77,10 +85,43 @@ pub async fn create_user(
     body: web::Json<LoginInfo>,
     db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, Error> {
+
     let new_token = create_token(&body.username).unwrap();
-    let new_user = db.db_create_user(&body.username, &body.password, &new_token).await?;
+    let hashed_password = hash(&body.password, DEFAULT_COST).unwrap();
+    let new_user = db
+        .db_create_user(&body.username, &hashed_password, &new_token)
+        .await?;
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
+}
+/*
+use bcrypt::{hash, verify, DEFAULT_COST};
+let hashed = hash("hunter2", DEFAULT_COST).unwrap();
+let valid = verify("hunter2", &hashed).unwrap();
+println!("{:?}", valid);
+*/
+pub async fn login(
+    body: web::Json<LoginInfo>,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
+
+    let result = db.db_get_by_username(&body.username).await;
+    if let Some(user) = result {
+        println!("we do have a user {}", &body.username);
+        let result = verify(&body.password, &user.password);
+        if let Ok(valid) = result {
+            println!("we have an Ok from bcrypt");
+            if valid {
+                println!("we have a valid verify");
+                return Ok(HttpResponse::Ok().json(LoginResponse { data: user }));
+            }
+        } else {
+            let err = result.err().unwrap();
+            println!("error from verify {}", err.to_string());
+        }
+    }
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+        .body("incorrect username or password"))
 }
 
 /*
@@ -104,18 +145,6 @@ localhost:3010/api/v1/users/login \
 */
 // get user from db, compare passwords, create login token
 // return user or error 500
-
-pub async fn login(
-    body: web::Json<LoginInfo>,
-    db: web::Data<TodoDB>,
-) -> Result<HttpResponse, TodoAppError> {
-    let result = db.db_get_by_username(&body.username).await;
-    match result {
-        Ok(user) => Ok(HttpResponse::Ok().json(LoginResponse { data: user })),
-        Err(error) => Err(error)
-    }
-}
-
 /*
 # logout
 ## route: "/logout"
@@ -152,8 +181,7 @@ pub async fn logout(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
     Ok(HttpResponse::Ok().json(response))
 }
 
-
-use jsonwebtoken::{encode, Header, EncodingKey};
+use jsonwebtoken::{encode, EncodingKey, Header};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct UserClaims {
@@ -161,16 +189,19 @@ struct UserClaims {
 }
 // from js return jwt.sign(data, jwtSecret);
 fn create_token(username: &str) -> Result<String, TodoAppError> {
-
     let secret = dotenv::var("JWT_SECRET");
     match secret {
         Ok(s) => {
+            // this needs to be done once somewhere idk where
+            let encoding_key = &EncodingKey::from_secret(s.as_bytes());
             //let data = UserClaims { username: username.to_string() };
-            let token = encode(&Header::default(), &username, &EncodingKey::from_secret(s.as_bytes())).unwrap();
+            let token = encode(&Header::default(), &username, encoding_key).unwrap();
             Ok(token)
         }
         Err(_e) => {
-            return Err(TodoAppError{ name: "could not get secrect from env".to_string() });
+            return Err(TodoAppError {
+                name: "could not get secrect from env".to_string(),
+            });
         }
     }
 }
@@ -180,12 +211,12 @@ mod test {
 
     use std::process::Command;
 
-/*
-curl -X POST \
-localhost:3010/api/v1/users \
--H "Content-Type: application/json" \
---data '{ "username": "woodroww", "password": "myfancypass" }'
-*/
+    /*
+    curl -X POST \
+    localhost:3010/api/v1/users \
+    -H "Content-Type: application/json" \
+    --data '{ "username": "woodroww", "password": "myfancypass" }'
+    */
 
     #[test]
     fn create_user() {
@@ -208,13 +239,12 @@ localhost:3010/api/v1/users \
         assert!(output_str.len() > 0);
     }
 
-
-/*
-curl -X POST \
-localhost:3010/api/v1/users/login \
--H "Content-Type: application/json" \
---data '{ "username": "woodroww", "password": "myfancypass" }'
-*/
+    /*
+    curl -X POST \
+    localhost:3010/api/v1/users/login \
+    -H "Content-Type: application/json" \
+    --data '{ "username": "woodroww", "password": "myfancypass" }'
+    */
 
     #[test]
     fn login() {
@@ -233,6 +263,4 @@ localhost:3010/api/v1/users/login \
         let expected = r#"{"data":{"id":2,"username":"woodroww","password":"myfancypass","deleted_at":null,"token":"createuserToken"}}"#;
         assert_eq!(output_str, expected.to_string());
     }
-
 }
-

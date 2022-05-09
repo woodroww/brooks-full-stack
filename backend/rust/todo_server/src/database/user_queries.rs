@@ -83,7 +83,7 @@ impl TodoDB {
     pub async fn db_get_by_username(
         &self,
         username: &str,
-    ) -> Result<User, TodoAppError> {
+    ) -> Option<User> {
         let con = self.pool.get().await.unwrap();
         let sql = "SELECT * FROM users WHERE username = $1 LIMIT 1";
         let result = con.query(sql, &[&username.to_string()]).await;
@@ -95,13 +95,10 @@ impl TodoDB {
                 result.password = user_row.get("password");
                 result.deleted_at = user_row.get("deleted_at");
                 result.token = user_row.get("token");
+                return Some(result);
             }
-            Ok(result)
-        } else {
-            Err(TodoAppError {
-                name: "invalid username or password".to_string(),
-            })
         }
+        None
     }
 
     pub fn db_find_and_remove_token(
