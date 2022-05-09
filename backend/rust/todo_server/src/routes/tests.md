@@ -17,7 +17,7 @@ localhost:3010/api/v1/users/login \
 
 curl -X POST \
 localhost:3010/api/v1/users/logout \
--H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc2MjQxfQ.dFoUWNAMpiiyXC2lKDsU_tZ88Kvb-lIFOf9_8QEzg9E"
+-H "x-auth-token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.Indvb2Ryb3d3Ig.8H93zyAZ9KqTTngPPAepYMrMLWRQBXcKsxRX1Jn8HxQ"
 
 # create a task
 

@@ -1,12 +1,11 @@
 // /Users/matt/external_code/BrooksYew/brooks-full-stack/backend/nodejs/express/database/userQueries.js
 // /Users/matt/Documents/Programming/rust/postgres-test/src/main.rs
 
-use crate::database::{UserId, TodoDB};
+use crate::database::{TodoDB, UserId};
 use crate::routes::errors::TodoAppError;
-use crate::routes::users::{UserCreatedInfo, User};
+use crate::routes::users::{User, UserCreatedInfo};
 
 impl TodoDB {
-
     // hash password and store username, token, and hashed password in db
     // get back unique user id from db and return UserCreatedInfo
     pub async fn db_create_user(
@@ -22,7 +21,7 @@ impl TodoDB {
                 sql,
                 &[
                     &username.to_string(),
-                    &self.db_hash_password(password),
+                    &password.to_string(),
                     &token.to_string(),
                 ],
             )
@@ -33,11 +32,11 @@ impl TodoDB {
             if let Some(db_err) = e.as_db_error() {
                 return Err(TodoAppError {
                     name: db_err.message().to_string(),
-                })
+                });
             } else {
                 return Err(TodoAppError {
                     name: "error from db_create_user".to_string(),
-                })
+                });
             }
         }
 
@@ -50,11 +49,11 @@ impl TodoDB {
             if let Some(db_err) = e.as_db_error() {
                 return Err(TodoAppError {
                     name: db_err.message().to_string(),
-                })
+                });
             } else {
                 return Err(TodoAppError {
                     name: "error from db_create_user trying to get id".to_string(),
-                })
+                });
             }
         }
 
@@ -73,17 +72,7 @@ impl TodoDB {
         }
     }
 
-    pub fn db_hash_password(
-        &self,
-        password: &str) -> String {
-        // TODO: hash
-        password.to_string()
-    }
-
-    pub async fn db_get_by_username(
-        &self,
-        username: &str,
-    ) -> Option<User> {
+    pub async fn db_get_by_username(&self, username: &str) -> Option<User> {
         let con = self.pool.get().await.unwrap();
         let sql = "SELECT * FROM users WHERE username = $1 LIMIT 1";
         let result = con.query(sql, &[&username.to_string()]).await;
@@ -101,27 +90,36 @@ impl TodoDB {
         None
     }
 
-    pub fn db_find_and_remove_token(
+    pub async fn db_find_and_remove_token(
         &self,
-        token: &str) {
-        todo!()
-    }
-
-    pub async fn db_get_by_token(
-        &self,
-        token: &str) {
+        token: &str,
+    ) -> Result<u64, TodoAppError> {
         let con = self.pool.get().await.unwrap();
-        let sql = "SELECT * FROM users WHERE token = $1 LIMIT 1";
-        let result = con.query(sql, &[&token.to_string()]).await;
-
-        if let Ok(r) = result {
+        let sql = "UPDATE users SET token = NULL WHERE token = $1";
+        let result = con.execute(sql, &[&token.to_string()]).await;
+        match result {
+            Ok(row_count) => Ok(row_count),
+            Err(_) => Err(TodoAppError { name: "problems setting token to null".to_string() })
         }
     }
 
-    pub fn db_add_token_to_user(
-        &self,
-        token: &str,
-        user_id: UserId) {
+    pub async fn db_get_by_token(&self, token: &str) -> Option<UserCreatedInfo> {
+        let con = self.pool.get().await.unwrap();
+        let sql = "SELECT id, username, token FROM users WHERE token = $1 LIMIT 1";
+        let result = con.query(sql, &[&token.to_string()]).await;
+        if let Ok(r) = result {
+            if let Some(user_row) = r.first() {
+                return Some(UserCreatedInfo {
+                    id: user_row.get("id"),
+                    username: user_row.get("username"),
+                    token: user_row.get("token"),
+                });
+            }
+        }
+        None
+    }
+
+    pub fn db_add_token_to_user(&self, token: &str, user_id: UserId) {
         todo!()
     }
 }

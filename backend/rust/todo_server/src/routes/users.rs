@@ -94,35 +94,6 @@ pub async fn create_user(
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
 }
-/*
-use bcrypt::{hash, verify, DEFAULT_COST};
-let hashed = hash("hunter2", DEFAULT_COST).unwrap();
-let valid = verify("hunter2", &hashed).unwrap();
-println!("{:?}", valid);
-*/
-pub async fn login(
-    body: web::Json<LoginInfo>,
-    db: web::Data<TodoDB>,
-) -> Result<HttpResponse, TodoAppError> {
-
-    let result = db.db_get_by_username(&body.username).await;
-    if let Some(user) = result {
-        println!("we do have a user {}", &body.username);
-        let result = verify(&body.password, &user.password);
-        if let Ok(valid) = result {
-            println!("we have an Ok from bcrypt");
-            if valid {
-                println!("we have a valid verify");
-                return Ok(HttpResponse::Ok().json(LoginResponse { data: user }));
-            }
-        } else {
-            let err = result.err().unwrap();
-            println!("error from verify {}", err.to_string());
-        }
-    }
-    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
-        .body("incorrect username or password"))
-}
 
 /*
 # login
@@ -143,6 +114,25 @@ localhost:3010/api/v1/users/login \
     }
 }
 */
+
+pub async fn login(
+    body: web::Json<LoginInfo>,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
+
+    let result = db.db_get_by_username(&body.username).await;
+    if let Some(user) = result {
+        let result = verify(&body.password, &user.password);
+        if let Ok(valid) = result {
+            if valid {
+                return Ok(HttpResponse::Ok().json(LoginResponse { data: user }));
+            }
+        }
+    }
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+        .body("incorrect username or password"))
+}
+
 // get user from db, compare passwords, create login token
 // return user or error 500
 /*
@@ -160,11 +150,19 @@ localhost:3010/api/v1/users/logout \
 // find and remove token from db
 // return message or error 500
 
-pub async fn logout(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
+pub async fn logout(
+    req: HttpRequest,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
-            println!("we have token: {}", token_string);
+            let row_count = db.db_find_and_remove_token(token_string).await?;
+            if row_count != 1 {
+                return Err(TodoAppError {
+                    name: "row_count != 1 from db_find_and_remove_token".to_string(),
+                });
+            }
         } else {
             return Err(TodoAppError {
                 name: "no x-auth-token string error".to_string(),
