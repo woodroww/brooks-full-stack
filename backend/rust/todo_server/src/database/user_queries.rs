@@ -61,7 +61,7 @@ pub async fn db_get_by_username(
             result.id = user_row.get("id");
             result.username = user_row.get("username");
             result.password = user_row.get("password");
-            result.deleted_at = Some(user_row.get("deleted_at"));
+            result.deleted_at = user_row.get("deleted_at");
             result.token = user_row.get("token");
         }
         Ok(result)
