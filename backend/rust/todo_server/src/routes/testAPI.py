@@ -2,6 +2,7 @@ import requests
 import json
 import random
 import string
+import pytest
 
 
 def create_user(user, password):
@@ -15,6 +16,8 @@ def create_user(user, password):
     assert(r.status_code == requests.codes.ok)
 
     json_response = r.json()["data"]
+    print("create_user() data")
+    print(json_response)
     json_response["id"]
     json_response["username"]
     jwt = json_response["token"]
@@ -22,7 +25,7 @@ def create_user(user, password):
     return jwt
 
 
-def login():
+def login(user, password):
     header = { "Content-Type": "application/json" }
     payload = { "username": user, "password": password }
     r = requests.post(
@@ -33,6 +36,8 @@ def login():
     assert(r.status_code == requests.codes.ok)
 
     json_response = r.json()["data"]
+    print("login() data")
+    print(json_response)
     json_response["id"]
     json_response["username"]
     jwt = json_response["token"]
@@ -63,6 +68,8 @@ def create_task(jwt, title, description):
 
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
+    print("create_task() data")
+    print(json_response)
     assert(json_response["title"] == title)
     print("create_task() passed")
     return json_response["id"]
@@ -76,20 +83,22 @@ def get_task(jwt, task_id):
     
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
+    print("get_task() data")
+    print(json_response)
     print("get_task() passed")
 
 
+def test_main():
+    letters = string.ascii_letters
+    user = "".join(random.choices(letters, k=10))
+    password = "".join(random.choices(letters, k=10))
+    create_user(user, password)
+    jwt = login(user, password)
+    title = "".join(random.choices(letters, k=10))
+    description = "".join(random.choices(letters, k=10))
+    task_id = create_task(jwt, title, description)
+    get_task(jwt, task_id)
+    logout(jwt)
 
-
-letters = string.ascii_letters
-user = "".join(random.choices(letters, k=10))
-password = "".join(random.choices(letters, k=10))
-create_user(user, password)
-jwt = login()
-title = "".join(random.choices(letters, k=10))
-description = "".join(random.choices(letters, k=10))
-task_id = create_task(jwt, title, description)
-get_task(jwt, task_id)
-logout(jwt)
-
-
+if __name__ == "__main__":
+    test_main()
