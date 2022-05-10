@@ -1,5 +1,5 @@
+use crate::database::{TaskId, TodoDB, UserId};
 use crate::routes::TodoAppError;
-use crate::database::{TodoDB, UserId, TaskId};
 use actix_web::http::StatusCode;
 use actix_web::{web, HttpRequest, HttpResponse, HttpResponseBuilder};
 use chrono::NaiveDateTime;
@@ -7,17 +7,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateTaskRequest {
-   pub title: String,
-   pub description: String,
+    pub title: String,
+    pub description: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct TaskInfo {
-   pub id: TaskId,
-   pub priority: Option<String>,
-   pub title: String,
-   pub completed_at: Option<NaiveDateTime>,
-   pub description: String,
+    pub id: TaskId,
+    pub priority: Option<String>,
+    pub title: String,
+    pub completed_at: Option<NaiveDateTime>,
+    pub description: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,16 +29,15 @@ struct TaskResponse {
 // ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
 pub struct Task {
-   pub id: TaskId,
-   pub priority: Option<String>,
-   pub title: String,
-   pub completed_at: Option<NaiveDateTime>,
-   pub description: String,
-   pub deleted_at: Option<NaiveDateTime>,
-   pub user_id: UserId,
-   pub is_default: bool,
+    pub id: TaskId,
+    pub priority: Option<String>,
+    pub title: String,
+    pub completed_at: Option<NaiveDateTime>,
+    pub description: String,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub user_id: UserId,
+    pub is_default: bool,
 }
-
 
 /*
 # create a task
@@ -62,44 +61,26 @@ localhost:3010/api/v1/tasks \
 }
 */
 
+
 pub async fn create_task(
     req: HttpRequest,
     body: web::Json<CreateTaskRequest>,
     db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let token = req.headers().get("x-auth-token");
-    let user_id;
-    if let Some(t) = token {
-        if let Some(token_string) = t.to_str().ok() {
-            let authentication_result = db.authenticate(token_string).await;
-            if let Some(user) = authentication_result {
-                user_id = user.id;
-            } else {
-                return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
-                    .body("invalid token"))
-            }
+    if let Some(user) = db.authenticate(&req).await {
+        let create_request = CreateTaskRequest {
+            title: body.title.clone(),
+            description: body.description.clone(),
+        };
+        let create_response = db.insert_task(&create_request, user.id).await;
+        if let Some(info) = create_response {
+            return Ok(HttpResponse::Ok().json(TaskResponse { data: info }));
         } else {
-            return Err(TodoAppError {
-                name: "invalid x-auth-token error".to_string(),
-            });
+            return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+                .body("something wrong with db returning inserted task"));
         }
-    } else {
-        return Err(TodoAppError {
-            name: "invalid x-auth-token error".to_string(),
-        });
     }
-
-    let create_request = CreateTaskRequest {
-        title: body.title.clone(),
-        description: body.description.clone(),
-    };
-    let create_response = db.db_insert_task(&create_request, user_id).await;
-    if let Some(info) = create_response {
-        Ok(HttpResponse::Ok().json(TaskResponse { data: info }))
-    } else {
-        Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
-            .body("something wrong with db returning inserted task"))
-    }
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"))
 }
 
 /*
@@ -130,30 +111,25 @@ pub async fn get_task_id(
     db: web::Data<TodoDB>,
     id: web::Path<i32>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let token = req.headers().get("x-auth-token");
-    if let Some(t) = token {
-        if let Some(token_string) = t.to_str().ok() {
-            if let Some(user) = db.authenticate(token_string).await {
-                let task_id = id.into_inner();
-                let task = db.db_get_task(user.id, task_id).await;
-                if let Some(t) = task {
-                    let info = TaskInfo {
-                        id: t.id,
-                        priority: t.priority,
-                        title: t.title,
-                        completed_at: t.completed_at,
-                        description: t.description,
-                    };
-                    return Ok(HttpResponse::Ok().json(TaskResponse { data: info }));
-                } else {
-                    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
-                        .body("no such task"))
-                }
-            }
+    if let Some(user) = db.authenticate(&req).await {
+        let task_id = id.into_inner();
+        let task = db.get_task(user.id, task_id).await;
+        if let Some(t) = task {
+            let info = TaskInfo {
+                id: t.id,
+                priority: t.priority,
+                title: t.title,
+                completed_at: t.completed_at,
+                description: t.description,
+            };
+            return Ok(HttpResponse::Ok().json(TaskResponse { data: info }));
+        } else {
+            return Ok(
+                HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("no such task")
+            );
         }
     }
-    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
-        .body("invalid token"))
+    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
 }
 
 /*
@@ -170,23 +146,17 @@ OK
 
 pub async fn set_task_completed(
     req: HttpRequest,
-    id: web::Path<u32>,
+    db: web::Data<TodoDB>,
+    id: web::Path<TaskId>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let token = req.headers().get("x-auth-token");
-    if let Some(t) = token {
-        if let Some(token_string) = t.to_str().ok() {
-            println!("we have token: {}", token_string);
-        } else {
-            return Err(TodoAppError {
-                name: "invalid x-auth-token error".to_string(),
-            });
+    if let Some(user) = db.authenticate(&req).await {
+        println!("we have authentication");
+        if db.mark_completed(user.id, *id).await {
+            println!("we have mark_completed");
+            return Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())));
         }
-    } else {
-        return Err(TodoAppError {
-            name: "invalid x-auth-token error".to_string(),
-        });
     }
-    Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())))
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
 
 /*
@@ -203,21 +173,13 @@ OK
 
 pub async fn set_task_uncompleted(
     req: HttpRequest,
-    id: web::Path<u32>,
+    db: web::Data<TodoDB>,
+    id: web::Path<TaskId>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let token = req.headers().get("x-auth-token");
-    if let Some(t) = token {
-        if let Some(token_string) = t.to_str().ok() {
-            println!("we have token: {}", token_string);
-        } else {
-            return Err(TodoAppError {
-                name: "invalid x-auth-token error".to_string(),
-            });
+    if let Some(user) = db.authenticate(&req).await {
+        if db.mark_uncompleted(user.id, *id).await {
+            return Ok(HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner())));
         }
-    } else {
-        return Err(TodoAppError {
-            name: "invalid x-auth-token error".to_string(),
-        });
     }
-    Ok(HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner())))
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }

@@ -33,7 +33,7 @@ impl Default for User {
 
 // info returned from db_create_user
 #[derive(Serialize, Deserialize)]
-pub struct UserCreatedInfo {
+pub struct UserInfo {
     pub id: UserId,
     pub username: String,
     pub token: String,
@@ -41,7 +41,7 @@ pub struct UserCreatedInfo {
 
 #[derive(Serialize, Deserialize)]
 struct CreateUserResponse {
-    data: UserCreatedInfo,
+    data: UserInfo,
 }
 
 #[derive(Serialize, Deserialize)]

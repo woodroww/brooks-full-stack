@@ -1,18 +1,22 @@
 // /Users/matt/external_code/BrooksYew/brooks-full-stack/backend/nodejs/express/database/taskQueries.js
 
 use crate::database::{TaskId, TodoDB, UserId};
-use crate::routes::tasks::{TaskInfo, CreateTaskRequest, Task};
-//use crate::routes::TodoAppError;
-use chrono::{DateTime, Utc};
+use crate::routes::tasks::{CreateTaskRequest, Task, TaskInfo};
+use chrono::NaiveDateTime;
 
 // /Users/matt/external_code/BrooksYew/brooks-full-stack/database/init.sql
 
 impl TodoDB {
-    pub async fn db_insert_task(&self, task: &CreateTaskRequest, user_id: UserId) -> Option<TaskInfo> {
-
+    pub async fn insert_task(
+        &self,
+        task: &CreateTaskRequest,
+        user_id: UserId,
+    ) -> Option<TaskInfo> {
         let con = self.pool.get().await.unwrap();
         let sql = "INSERT INTO tasks (title, description, user_id) VALUES ($1, $2, $3) RETURNING id, priority, title, completed_at, description";
-        let err = con.query(sql, &[&task.title, &task.description.clone(), &user_id]).await;
+        let err = con
+            .query(sql, &[&task.title, &task.description.clone(), &user_id])
+            .await;
         if err.is_err() {
             return None;
         }
@@ -20,11 +24,11 @@ impl TodoDB {
         println!("db_insert_task {} rows returned", query_result.len());
         if let Some(row) = query_result.first() {
             return Some(TaskInfo {
-                id: row.get("id"), 
-                priority: row.get("priority"), 
+                id: row.get("id"),
+                priority: row.get("priority"),
                 title: row.get("title"),
                 completed_at: row.get("completed_at"),
-                description: row.get("description"), 
+                description: row.get("description"),
             });
         }
         None
@@ -34,8 +38,7 @@ impl TodoDB {
         todo!();
     }
 
-    pub async fn db_get_task(&self, user_id: UserId, task_id: TaskId) -> Option<Task> {
-        
+    pub async fn get_task(&self, user_id: UserId, task_id: TaskId) -> Option<Task> {
         let con = self.pool.get().await.unwrap();
         let sql = "SELECT * FROM tasks WHERE user_id = $1 AND id = $2";
         let err = con.query(sql, &[&user_id, &task_id]).await;
@@ -53,27 +56,45 @@ impl TodoDB {
             return Some(Task {
                 id: row.get("id"),
                 priority: row.get("priority"),
-                title: row.get("title"), 
-                completed_at: row.get("completed_at"), 
-                description: row.get("description"), 
-                deleted_at: row.get("deleted_at"), 
-                user_id: row.get("user_id"), 
+                title: row.get("title"),
+                completed_at: row.get("completed_at"),
+                description: row.get("description"),
+                deleted_at: row.get("deleted_at"),
+                user_id: row.get("user_id"),
                 is_default: row.get("is_default"),
             });
         }
         None
     }
 
-    fn mark_completed(user_id: UserId, task_id: TaskId) {
-        todo!();
+    pub async fn mark_completed(&self, user_id: UserId, task_id: TaskId) -> bool {
+        let completed = Some(chrono::Local::now().naive_local());
+        self.update_completed_status(user_id, task_id, completed).await
     }
 
-    fn mark_uncompleted(user_id: UserId, task_id: TaskId) {
-        todo!();
+    pub async fn mark_uncompleted(&self, user_id: UserId, task_id: TaskId) -> bool {
+        self.update_completed_status(user_id, task_id, None).await
     }
 
-    fn update_completed_status(user_id: UserId, task_id: TaskId, completed_at: DateTime<Utc>) {
-        todo!();
+    async fn update_completed_status(
+        &self,
+        user_id: UserId,
+        task_id: TaskId,
+        completed_at: Option<NaiveDateTime>,
+    ) -> bool {
+        let con = self.pool.get().await.unwrap();
+        let sql = "UPDATE tasks SET completed_at = $1 WHERE user_id = $2 AND id = $3 AND deleted_at = NULL";
+        let err = con.query(sql, &[&completed_at, &user_id, &task_id]).await;
+        if err.is_err() {
+            let e = err.err().unwrap();
+            if let Some(db_err) = e.as_db_error() {
+                println!("db_get_task error {}", db_err.message().to_string());
+            } else {
+                println!("where is the error");
+            }
+            return false;
+        }
+        true
     }
 
     fn update_task(user_id: UserId, task_id: TaskId, task: Task) {

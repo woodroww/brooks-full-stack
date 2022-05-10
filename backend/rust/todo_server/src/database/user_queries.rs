@@ -3,7 +3,7 @@
 
 use crate::database::{TodoDB, UserId};
 use crate::routes::TodoAppError;
-use crate::routes::users::{User, UserCreatedInfo};
+use crate::routes::users::{User, UserInfo};
 
 impl TodoDB {
     // hash password and store username, token, and hashed password in db
@@ -13,7 +13,7 @@ impl TodoDB {
         username: &str,
         password: &str,
         token: &str,
-    ) -> Result<UserCreatedInfo, TodoAppError> {
+    ) -> Result<UserInfo, TodoAppError> {
         let con = self.pool.get().await.unwrap();
         let sql = "INSERT INTO users (username, password, token) VALUES ($1, $2, $3)";
         let err = con
@@ -59,7 +59,7 @@ impl TodoDB {
 
         let query_result = err.unwrap();
         if let Some(row) = query_result.first() {
-            let result = UserCreatedInfo {
+            let result = UserInfo {
                 id: row.get("id"),
                 username: username.to_string(),
                 token: token.to_string(),
