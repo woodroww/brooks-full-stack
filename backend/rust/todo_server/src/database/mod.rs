@@ -57,12 +57,8 @@ impl TodoDB {
         None
     }
 
-    pub async fn authenticate(&self, token: &str) -> bool {
-        let user = self.db_get_by_token(token).await;
-        match user {
-            Some(_u) => true,
-            None => false
-        }
+    pub async fn authenticate(&self, token: &str) -> Option<UserCreatedInfo> {
+        self.db_get_by_token(token).await
     }
 }
 

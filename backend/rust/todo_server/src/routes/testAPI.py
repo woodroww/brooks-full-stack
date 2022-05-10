@@ -47,7 +47,6 @@ def logout(jwt):
         headers=header)
     
     assert(r.status_code == requests.codes.ok)
-
     json_response = r.json()["message"]
     assert(json_response == "user logged out")
     print("logout() passed")
@@ -55,8 +54,7 @@ def logout(jwt):
 
 
 def create_task(jwt, title, description):
-    header = { "Content-Type": "application/json" }
-    header = { "x-auth-token": jwt }
+    header = { "Content-Type": "application/json", "x-auth-token": jwt }
     payload = { "title": title, "description": description }
     r = requests.post(
         "http://localhost:3010/api/v1/tasks",
@@ -65,9 +63,22 @@ def create_task(jwt, title, description):
 
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
-    print(f"create_task() {json_response}")
     assert(json_response["title"] == title)
     print("create_task() passed")
+    return json_response["id"]
+
+
+def get_task(jwt, task_id):
+    header = { "x-auth-token": jwt }
+    r = requests.get(
+        f"http://localhost:3010/api/v1/tasks/{task_id}",
+        headers=header)
+    
+    assert(r.status_code == requests.codes.ok)
+    json_response = r.json()["data"]
+    print("get_task() passed")
+
+
 
 
 letters = string.ascii_letters
@@ -77,9 +88,8 @@ create_user(user, password)
 jwt = login()
 title = "".join(random.choices(letters, k=10))
 description = "".join(random.choices(letters, k=10))
-create_task(jwt, title, description)
-
-
+task_id = create_task(jwt, title, description)
+get_task(jwt, task_id)
 logout(jwt)
 
 

@@ -1,23 +1,24 @@
 use crate::routes::TodoAppError;
-use actix_web::http::StatusCode;
 use crate::database::{TodoDB, UserId};
+use crate::database::task_queries;
+use actix_web::http::StatusCode;
 use actix_web::{web, HttpRequest, HttpResponse, HttpResponseBuilder};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateTaskRequest {
-    title: String,
-    description: String,
+   pub title: String,
+   pub description: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct CreateTaskInfo {
-    id: UserId,
-    priority: Option<u32>,
-    title: String,
-    completed_at: Option<u32>,
-    description: String,
+pub struct CreateTaskInfo {
+   pub id: UserId,
+   pub priority: Option<String>,
+   pub title: String,
+   pub completed_at: Option<DateTime<Utc>>,
+   pub description: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,14 +30,14 @@ struct CreateTaskResponse {
 // ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
 pub struct Task {
-    id: i32,
-    priority: Option<String>,
-    title: String,
-    completed_at: Option<DateTime<Utc>>,
-    description: String,
-    deleted_at: Option<DateTime<Utc>>,
-    user_id: UserId,
-    is_default: bool,
+   pub id: i32,
+   pub priority: Option<String>,
+   pub title: String,
+   pub completed_at: Option<DateTime<Utc>>,
+   pub description: String,
+   pub deleted_at: Option<DateTime<Utc>>,
+   pub user_id: UserId,
+   pub is_default: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -72,9 +73,13 @@ pub async fn create_task(
     db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
+    let user_id;
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
-            if !db.authenticate(token_string).await {
+            let authentication_result = db.authenticate(token_string).await;
+            if let Some(user) =  authentication_result {
+                user_id = user.id;
+            } else {
                 return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
                     .body("invalid token"))
             }
@@ -89,17 +94,19 @@ pub async fn create_task(
         });
     }
 
-    let user_id = 0;
-
-    let create_info = CreateTaskInfo {
-        id: user_id,
-        priority: None,
+    let create_request = CreateTaskRequest {
         title: body.title.clone(),
-        completed_at: None,
         description: body.description.clone(),
     };
-
-    Ok(HttpResponse::Ok().json(CreateTaskResponse { data: create_info }))
+    let create_response = db.db_insert_task(&create_request, user_id).await.unwrap();
+    let info = CreateTaskInfo {
+        id: create_response.id,
+        priority: create_response.priority,
+        title: create_response.title,
+        completed_at: create_response.completed_at,
+        description: create_response.description,
+    };
+    Ok(HttpResponse::Ok().json(CreateTaskResponse { data: info }))
 }
 
 /*
@@ -127,12 +134,16 @@ localhost:3010/api/v1/tasks/8
 
 pub async fn get_task_id(
     req: HttpRequest,
+    db: web::Data<TodoDB>,
     id: web::Path<i32>,
 ) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
-            println!("we have token: {}", token_string);
+            if db.authenticate(token_string).await.is_none() {
+                return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+                    .body("invalid token"))
+            }
         } else {
             return Err(TodoAppError {
                 name: "invalid x-auth-token error".to_string(),
@@ -145,17 +156,7 @@ pub async fn get_task_id(
     }
 
     let find_id = id.into_inner();
-
-    let task = Task {
-        id: find_id,
-        priority: None,
-        title: "what".to_string(),
-        completed_at: None,
-        description: "task description".to_string(),
-        deleted_at: None,
-        user_id: 123,
-        is_default: false,
-    };
+    let task = db.db_get_task(1,  find_id).await;
     Ok(HttpResponse::Ok().json(TaskResponse { data: task }))
 }
 
