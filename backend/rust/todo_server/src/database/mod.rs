@@ -5,6 +5,7 @@ use thiserror::Error;
 use deadpool_postgres::Pool;
 use deadpool_postgres::{Config, ManagerConfig, RecyclingMethod, Runtime};
 use tokio_postgres::NoTls;
+use crate::routes::users::UserCreatedInfo;
 
 pub type UserId = i32;
 pub type TaskId = i32;
@@ -38,6 +39,30 @@ impl TodoDB {
         config.manager = Some(ManagerConfig { recycling_method: RecyclingMethod::Fast });
         let pool = config.create_pool(Some(Runtime::Tokio1), NoTls).unwrap();
         TodoDB { pool }
+    }
+
+    pub async fn db_get_by_token(&self, token: &str) -> Option<UserCreatedInfo> {
+        let con = self.pool.get().await.unwrap();
+        let sql = "SELECT id, username, token FROM users WHERE token = $1 LIMIT 1";
+        let result = con.query(sql, &[&token.to_string()]).await;
+        if let Ok(r) = result {
+            if let Some(user_row) = r.first() {
+                return Some(UserCreatedInfo {
+                    id: user_row.get("id"),
+                    username: user_row.get("username"),
+                    token: user_row.get("token"),
+                });
+            }
+        }
+        None
+    }
+
+    pub async fn authenticate(&self, token: &str) -> bool {
+        let user = self.db_get_by_token(token).await;
+        match user {
+            Some(_u) => true,
+            None => false
+        }
     }
 }
 

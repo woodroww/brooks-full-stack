@@ -1,11 +1,19 @@
-use actix_web::{web, HttpResponse, HttpRequest};
-use serde::{Deserialize, Serialize};
-use crate::routes::errors::TodoAppError;
+use crate::routes::TodoAppError;
+use actix_web::http::StatusCode;
+use crate::database::{TodoDB, UserId};
+use actix_web::{web, HttpRequest, HttpResponse, HttpResponseBuilder};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateTaskRequest {
+    title: String,
+    description: String,
+}
 
 #[derive(Serialize, Deserialize)]
 struct CreateTaskInfo {
-    id: u32,
+    id: UserId,
     priority: Option<u32>,
     title: String,
     completed_at: Option<u32>,
@@ -17,7 +25,7 @@ struct CreateTaskResponse {
     data: CreateTaskInfo,
 }
 
-// file for sql table creation 
+// file for sql table creation
 // ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
 pub struct Task {
@@ -27,7 +35,7 @@ pub struct Task {
     completed_at: Option<DateTime<Utc>>,
     description: String,
     deleted_at: Option<DateTime<Utc>>,
-    user_id: i32,
+    user_id: UserId,
     is_default: bool,
 }
 
@@ -35,7 +43,6 @@ pub struct Task {
 struct TaskResponse {
     data: Task,
 }
-
 
 /*
 # create a task
@@ -49,36 +56,47 @@ localhost:3010/api/v1/tasks \
 
 ### response:
 {
-	"data": {
-		"id": 8,
-		"priority": null,
-		"title": "Curl is fun",
-		"completed_at": null,
-		"description": "typing and stuff in the terminal"
-	}
+    "data": {
+        "id": 8,
+        "priority": null,
+        "title": "Curl is fun",
+        "completed_at": null,
+        "description": "typing and stuff in the terminal"
+    }
 }
 */
 
-pub async fn create_task(req: HttpRequest) -> Result<HttpResponse, TodoAppError> {
+pub async fn create_task(
+    req: HttpRequest,
+    body: web::Json<CreateTaskRequest>,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
-            println!("we have token: {}", token_string);
+            if !db.authenticate(token_string).await {
+                return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+                    .body("invalid token"))
+            }
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+            return Err(TodoAppError {
+                name: "invalid x-auth-token error".to_string(),
+            });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+        return Err(TodoAppError {
+            name: "invalid x-auth-token error".to_string(),
+        });
     }
-    let title = "Title".to_string();
-    let description = "Description".to_string();
+
+    let user_id = 0;
 
     let create_info = CreateTaskInfo {
-        id: 0,
+        id: user_id,
         priority: None,
-        title,
+        title: body.title.clone(),
         completed_at: None,
-        description,
+        description: body.description.clone(),
     };
 
     Ok(HttpResponse::Ok().json(CreateTaskResponse { data: create_info }))
@@ -94,29 +112,36 @@ localhost:3010/api/v1/tasks/8
 
 ### response:
 {
-	"data": {
-		"id": 8,
-		"priority": null,
-		"title": "Curl is fun",
-		"completed_at": null,
-		"description": "typing and stuff in the terminal",
-		"deleted_at": null,
-		"user_id": 3,
-		"is_default": false
-	}
+    "data": {
+        "id": 8,
+        "priority": null,
+        "title": "Curl is fun",
+        "completed_at": null,
+        "description": "typing and stuff in the terminal",
+        "deleted_at": null,
+        "user_id": 3,
+        "is_default": false
+    }
 }
 */
 
-pub async fn get_task_id(req: HttpRequest, id: web::Path<i32>) -> Result<HttpResponse, TodoAppError> {
+pub async fn get_task_id(
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+            return Err(TodoAppError {
+                name: "invalid x-auth-token error".to_string(),
+            });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+        return Err(TodoAppError {
+            name: "invalid x-auth-token error".to_string(),
+        });
     }
 
     let find_id = id.into_inner();
@@ -146,16 +171,23 @@ localhost:3010/api/v1/tasks/8/completed
 OK
 */
 
-pub async fn set_task_completed(req: HttpRequest, id: web::Path<u32>) -> Result<HttpResponse, TodoAppError> {
+pub async fn set_task_completed(
+    req: HttpRequest,
+    id: web::Path<u32>,
+) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+            return Err(TodoAppError {
+                name: "invalid x-auth-token error".to_string(),
+            });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+        return Err(TodoAppError {
+            name: "invalid x-auth-token error".to_string(),
+        });
     }
     Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())))
 }
@@ -172,17 +204,23 @@ localhost:3010/api/v1/tasks/8/uncompleted
 OK
 */
 
-pub async fn set_task_uncompleted(req: HttpRequest, id: web::Path<u32>) -> Result<HttpResponse, TodoAppError> {
+pub async fn set_task_uncompleted(
+    req: HttpRequest,
+    id: web::Path<u32>,
+) -> Result<HttpResponse, TodoAppError> {
     let token = req.headers().get("x-auth-token");
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
             println!("we have token: {}", token_string);
         } else {
-            return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+            return Err(TodoAppError {
+                name: "invalid x-auth-token error".to_string(),
+            });
         }
     } else {
-        return Err(TodoAppError { name: "invalid x-auth-token error".to_string() });
+        return Err(TodoAppError {
+            name: "invalid x-auth-token error".to_string(),
+        });
     }
     Ok(HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner())))
 }
-

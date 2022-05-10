@@ -1,11 +1,12 @@
 use crate::database::{TodoDB, UserId};
-use crate::routes::errors::TodoAppError;
+use crate::routes::TodoAppError;
 use actix_web::http::StatusCode;
 use actix_web::{web, Error, HttpRequest, HttpResponse, HttpResponseBuilder};
 use chrono::NaiveDateTime;
 use dotenv;
 use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify, DEFAULT_COST};
+use jsonwebtoken::{encode, EncodingKey, Header};
 
 // file for sql table creation
 // ../../../../../database/init.sql
@@ -158,41 +159,30 @@ pub async fn logout(
     if let Some(t) = token {
         if let Some(token_string) = t.to_str().ok() {
             let row_count = db.db_find_and_remove_token(token_string).await?;
-            if row_count != 1 {
+            if row_count == 1 {
+                let response = MessageResponse {
+                    message: "user logged out".to_string(),
+                };
+                return Ok(HttpResponse::Ok().json(response));
+            } else {
                 return Err(TodoAppError {
                     name: "row_count != 1 from db_find_and_remove_token".to_string(),
                 });
             }
-        } else {
-            return Err(TodoAppError {
-                name: "no x-auth-token string error".to_string(),
-            });
-        }
-    } else {
-        return Err(TodoAppError {
-            name: "no x-auth-token error".to_string(),
-        });
+        } 
     }
-    let response = MessageResponse {
-        message: "user logged out".to_string(),
-    };
-    Ok(HttpResponse::Ok().json(response))
+    return Err(TodoAppError {
+        name: "no x-auth-token error".to_string(),
+    });
 }
 
-use jsonwebtoken::{encode, EncodingKey, Header};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct UserClaims {
-    username: String,
-}
-// from js return jwt.sign(data, jwtSecret);
 fn create_token(username: &str) -> Result<String, TodoAppError> {
     let secret = dotenv::var("JWT_SECRET");
     match secret {
         Ok(s) => {
             // this needs to be done once somewhere idk where
             let encoding_key = &EncodingKey::from_secret(s.as_bytes());
-            //let data = UserClaims { username: username.to_string() };
             let token = encode(&Header::default(), &username, encoding_key).unwrap();
             Ok(token)
         }
@@ -208,7 +198,6 @@ fn create_token(username: &str) -> Result<String, TodoAppError> {
 mod test {
 
     use std::process::Command;
-
     /*
     curl -X POST \
     localhost:3010/api/v1/users \
@@ -218,6 +207,8 @@ mod test {
 
     #[test]
     fn create_user() {
+
+        // create user
         let output = Command::new("curl")
             .arg("-X")
             .arg("POST")
@@ -230,6 +221,7 @@ mod test {
             .expect("failure");
         let output_str = String::from_utf8(output.stdout).unwrap();
         println!("output {}", output_str);
+
         // here id and token are going to be different each time called
         // as we are creating a new user
         //let base_expected = r#"{"data":{"id":3,"username":"woodroww","token":""}}"#;

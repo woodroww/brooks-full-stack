@@ -2,7 +2,7 @@
 // /Users/matt/Documents/Programming/rust/postgres-test/src/main.rs
 
 use crate::database::{TodoDB, UserId};
-use crate::routes::errors::TodoAppError;
+use crate::routes::TodoAppError;
 use crate::routes::users::{User, UserCreatedInfo};
 
 impl TodoDB {
@@ -103,21 +103,6 @@ impl TodoDB {
         }
     }
 
-    pub async fn db_get_by_token(&self, token: &str) -> Option<UserCreatedInfo> {
-        let con = self.pool.get().await.unwrap();
-        let sql = "SELECT id, username, token FROM users WHERE token = $1 LIMIT 1";
-        let result = con.query(sql, &[&token.to_string()]).await;
-        if let Ok(r) = result {
-            if let Some(user_row) = r.first() {
-                return Some(UserCreatedInfo {
-                    id: user_row.get("id"),
-                    username: user_row.get("username"),
-                    token: user_row.get("token"),
-                });
-            }
-        }
-        None
-    }
 
     pub fn db_add_token_to_user(&self, token: &str, user_id: UserId) {
         todo!()
