@@ -1,10 +1,6 @@
-// /Users/matt/external_code/BrooksYew/brooks-full-stack/backend/nodejs/express/database/taskQueries.js
-
 use crate::database::{TaskId, TodoDB, UserId};
 use crate::routes::tasks::{CreateTaskRequest, Task, TaskInfo};
 use chrono::NaiveDateTime;
-
-// /Users/matt/external_code/BrooksYew/brooks-full-stack/database/init.sql
 
 impl TodoDB {
     pub async fn insert_task(
@@ -21,7 +17,6 @@ impl TodoDB {
             return None;
         }
         let query_result = err.ok().unwrap();
-        println!("db_insert_task {} rows returned", query_result.len());
         if let Some(row) = query_result.first() {
             return Some(TaskInfo {
                 id: row.get("id"),
@@ -34,8 +29,26 @@ impl TodoDB {
         None
     }
 
-    fn get_all_tasks(user_id: UserId) {
-        todo!();
+    pub async fn get_all_tasks(&self, user_id: UserId) -> Option<Vec<TaskInfo>> {
+        let con = self.pool.get().await.unwrap();
+        let sql = "SELECT completed_at, description, id, priority, title FROM tasks WHERE user_id = $1";
+        let err = con.query(sql, &[&user_id]).await;
+        if err.is_err() {
+            return None;
+        }
+        
+        let query_result = err.ok().unwrap();
+        let mut results = vec![];
+        for row in query_result {
+            results.push(TaskInfo {
+                id: row.get("id"),
+                priority: row.get("priority"),
+                title: row.get("title"),
+                completed_at:row.get("completed_at"), 
+                description: row.get("description"),                
+            });
+        }
+        Some(results)
     }
 
     pub async fn get_task(&self, user_id: UserId, task_id: TaskId) -> Option<Task> {

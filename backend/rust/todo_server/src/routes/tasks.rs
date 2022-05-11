@@ -1,3 +1,8 @@
+// TODO
+// updateTask - update task like user has changed the text
+// softDeleteTask - set deleted_at to now in db
+// getDefaultTasks - like for a new user to have default tasks as examples
+
 use crate::database::{TaskId, TodoDB, UserId};
 use crate::routes::TodoAppError;
 use actix_web::http::StatusCode;
@@ -25,8 +30,11 @@ struct TaskResponse {
     data: TaskInfo,
 }
 
-// file for sql table creation
-// ../../../../../database/init.sql
+#[derive(Serialize, Deserialize)]
+struct TaskListResponse {
+    data: Vec<TaskInfo>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Task {
     pub id: TaskId,
@@ -38,29 +46,6 @@ pub struct Task {
     pub user_id: UserId,
     pub is_default: bool,
 }
-
-/*
-# create a task
-## route: "/"
-
-curl -X POST \
-localhost:3010/api/v1/tasks \
--H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc2OTkyfQ.iEgWdomqYA3SkFZOiQmSvQPFLSW4kfsHVxA9p-WN8KA" \
--H "Content-Type: application/json" \
---data '{ "title": "Curl is fun", "description": "typing and stuff in the terminal" }'
-
-### response:
-{
-    "data": {
-        "id": 8,
-        "priority": null,
-        "title": "Curl is fun",
-        "completed_at": null,
-        "description": "typing and stuff in the terminal"
-    }
-}
-*/
-
 
 pub async fn create_task(
     req: HttpRequest,
@@ -82,29 +67,6 @@ pub async fn create_task(
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"))
 }
-
-/*
-# get a task
-## route: "/:taskId"
-
-curl -X GET \
--H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc4Mjg1fQ.KMLTPRSfhiKxfeVx4t1bF9VSUb7HsFOAZwwFcrtYLXE" \
-localhost:3010/api/v1/tasks/8
-
-### response:
-{
-    "data": {
-        "id": 8,
-        "priority": null,
-        "title": "Curl is fun",
-        "completed_at": null,
-        "description": "typing and stuff in the terminal",
-        "deleted_at": null,
-        "user_id": 3,
-        "is_default": false
-    }
-}
-*/
 
 pub async fn get_task_id(
     req: HttpRequest,
@@ -132,17 +94,19 @@ pub async fn get_task_id(
     return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
 }
 
-/*
-# set task with id as completed
-## route: "/:taskId/completed"
+pub async fn get_all_tasks(
+    req: HttpRequest,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
 
-curl -X PUT \
--H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc4Mjg1fQ.KMLTPRSfhiKxfeVx4t1bF9VSUb7HsFOAZwwFcrtYLXE" \
-localhost:3010/api/v1/tasks/8/completed
-
-### response:
-OK
-*/
+    if let Some(user) = db.authenticate(&req).await {
+        let result = db.get_all_tasks(user.id).await;
+        if let Some(tasks) = result {
+            return Ok(HttpResponse::Ok().json(TaskListResponse { data: tasks }));
+        }
+    }
+    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
+}
 
 pub async fn set_task_completed(
     req: HttpRequest,
@@ -150,26 +114,12 @@ pub async fn set_task_completed(
     id: web::Path<TaskId>,
 ) -> Result<HttpResponse, TodoAppError> {
     if let Some(user) = db.authenticate(&req).await {
-        println!("we have authentication");
         if db.mark_completed(user.id, *id).await {
-            println!("we have mark_completed");
             return Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())));
         }
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
-
-/*
-# set task with id as uncompleted
-## route: "/:taskId/uncompleted"
-
-curl -X PUT \
--H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc4Mjg1fQ.KMLTPRSfhiKxfeVx4t1bF9VSUb7HsFOAZwwFcrtYLXE" \
-localhost:3010/api/v1/tasks/8/uncompleted
-
-### response:
-OK
-*/
 
 pub async fn set_task_uncompleted(
     req: HttpRequest,
@@ -183,3 +133,7 @@ pub async fn set_task_uncompleted(
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
+
+
+
+

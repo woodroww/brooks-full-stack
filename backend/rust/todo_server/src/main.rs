@@ -17,6 +17,7 @@ async fn main() -> std::io::Result<()> {
             .route("/users/login", web::post().to(user::login))
             .route("/users/logout", web::post().to(user::logout))
             .route("/tasks", web::post().to(task::create_task))
+            .route("/tasks", web::get().to(task::get_all_tasks))
             .route("/tasks/{id}", web::get().to(task::get_task_id))
             .route("/tasks/{id}/completed", web::put().to(task::set_task_completed))
             .route("/tasks/{id}/uncompleted", web::put().to(task::set_task_uncompleted))

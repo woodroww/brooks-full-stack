@@ -38,7 +38,7 @@ def login(user, password):
     json_response["username"]
     jwt = json_response["token"]
     print("login() passed")
-    return jwt
+    return jwt, json_response["id"]
 
 
 def logout(jwt):
@@ -79,6 +79,19 @@ def get_task(jwt, task_id):
     print(json_response)
     print("get_task() passed")
 
+
+def get_all_user_tasks(jwt, user_id):
+    header = { "x-auth-token": jwt }
+    r = requests.get(
+        f"http://localhost:3010/api/v1/tasks",
+        headers=header)
+    print(f"get_all_user_tasks() {r.status_code}")
+    assert(r.status_code == requests.codes.ok)
+    json_response = r.json()
+    print(json_response)
+    print("get_all_user_tasks() passed")
+
+
 def mark_task_complete(jwt, task_id):
     header = { "x-auth-token": jwt }
     r = requests.put(
@@ -102,10 +115,15 @@ def test_main():
     user = "".join(random.choices(letters, k=10))
     password = "".join(random.choices(letters, k=10))
     create_user(user, password)
-    jwt = login(user, password)
+    jwt, user_id = login(user, password)
+
     title = "".join(random.choices(letters, k=10))
     description = "".join(random.choices(letters, k=10))
     task_id = create_task(jwt, title, description)
+    for i in range(5):
+        create_task(jwt, f"{title}_{i}", f"{description}_{i}")
+
+    get_all_user_tasks(jwt, user_id)
     get_task(jwt, task_id)
     mark_task_complete(jwt, task_id)
     mark_task_uncompleted(jwt, task_id)

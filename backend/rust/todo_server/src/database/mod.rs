@@ -1,12 +1,12 @@
-pub mod user_queries;
 pub mod task_queries;
+pub mod user_queries;
 
-use thiserror::Error;
-use deadpool_postgres::Pool;
-use deadpool_postgres::{Config, ManagerConfig, RecyclingMethod, Runtime};
-use tokio_postgres::NoTls;
 use crate::routes::users::UserInfo;
 use actix_web::HttpRequest;
+use deadpool_postgres::Pool;
+use deadpool_postgres::{Config, ManagerConfig, RecyclingMethod, Runtime};
+use thiserror::Error;
+use tokio_postgres::NoTls;
 
 pub type UserId = i32;
 pub type TaskId = i32;
@@ -25,24 +25,24 @@ pub enum TodoDBError {
 
 impl actix_web::error::ResponseError for TodoDBError {}
 
-
 pub struct TodoDB {
     pool: Pool,
 }
 
 impl TodoDB {
-
     pub fn new() -> Self {
         // postgresql://matt@localhost/brooks
         let mut config = Config::new();
         config.dbname = Some("brooks".to_string());
         config.user = Some("matt".to_string());
-        config.manager = Some(ManagerConfig { recycling_method: RecyclingMethod::Fast });
+        config.manager = Some(ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        });
         let pool = config.create_pool(Some(Runtime::Tokio1), NoTls).unwrap();
         TodoDB { pool }
     }
 
-    pub async fn db_get_by_token(&self, token: &str) -> Option<UserInfo> {
+    pub async fn get_by_token(&self, token: &str) -> Option<UserInfo> {
         let con = self.pool.get().await.unwrap();
         let sql = "SELECT id, username, token FROM users WHERE token = $1 LIMIT 1";
         let result = con.query(sql, &[&token.to_string()]).await;
@@ -58,22 +58,13 @@ impl TodoDB {
         None
     }
 
-    //pub async fn authenticate(&self, token: &str) -> Option<UserCreatedInfo> {
-    //    self.db_get_by_token(token).await
-    //}
-
-    pub async fn authenticate(
-        &self,
-        req: &HttpRequest,
-    ) -> Option<UserInfo> {
+    pub async fn authenticate(&self, req: &HttpRequest) -> Option<UserInfo> {
         let token = req.headers().get("x-auth-token");
         if let Some(t) = token {
             if let Some(token_string) = t.to_str().ok() {
-                return self.db_get_by_token(token_string).await;
+                return self.get_by_token(token_string).await;
             }
         }
         None
     }
 }
-
-

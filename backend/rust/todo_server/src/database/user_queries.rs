@@ -1,14 +1,19 @@
+// TODO
+/*
+addTokenToUser(token, userId) {
+*/
+
 // /Users/matt/external_code/BrooksYew/brooks-full-stack/backend/nodejs/express/database/userQueries.js
 // /Users/matt/Documents/Programming/rust/postgres-test/src/main.rs
 
 use crate::database::{TodoDB, UserId};
-use crate::routes::TodoAppError;
 use crate::routes::users::{User, UserInfo};
+use crate::routes::TodoAppError;
 
 impl TodoDB {
     // hash password and store username, token, and hashed password in db
     // get back unique user id from db and return UserCreatedInfo
-    pub async fn db_create_user(
+    pub async fn create_user(
         &self,
         username: &str,
         password: &str,
@@ -72,7 +77,7 @@ impl TodoDB {
         }
     }
 
-    pub async fn db_get_by_username(&self, username: &str) -> Option<User> {
+    pub async fn get_by_username(&self, username: &str) -> Option<User> {
         let con = self.pool.get().await.unwrap();
         let sql = "SELECT * FROM users WHERE username = $1 LIMIT 1";
         let result = con.query(sql, &[&username.to_string()]).await;
@@ -90,21 +95,31 @@ impl TodoDB {
         None
     }
 
-    pub async fn db_find_and_remove_token(
-        &self,
-        token: &str,
-    ) -> Result<u64, TodoAppError> {
+    pub async fn find_and_remove_token(&self, token: &str) -> Result<u64, TodoAppError> {
         let con = self.pool.get().await.unwrap();
         let sql = "UPDATE users SET token = NULL WHERE token = $1";
         let result = con.execute(sql, &[&token.to_string()]).await;
         match result {
             Ok(row_count) => Ok(row_count),
-            Err(_) => Err(TodoAppError { name: "problems setting token to null".to_string() })
+            Err(_) => Err(TodoAppError {
+                name: "problems setting token to null".to_string(),
+            }),
         }
     }
 
-
-    pub fn db_add_token_to_user(&self, token: &str, user_id: UserId) {
-        todo!()
+    pub async fn add_token_to_user(
+        &self,
+        token: &str,
+        user_id: UserId,
+    ) -> Result<(), TodoAppError> {
+        let con = self.pool.get().await.unwrap();
+        let sql = "UPDATE users SET token = $1 WHERE id = $2";
+        let result = con.execute(sql, &[&token.to_string(), &user_id]).await;
+        if result.is_err() {
+            return Err(TodoAppError {
+                name: "problems setting token".to_string(),
+            });
+        }
+        Ok(())
     }
 }

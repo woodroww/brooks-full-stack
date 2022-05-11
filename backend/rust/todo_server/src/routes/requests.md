@@ -89,6 +89,13 @@ localhost:3000/api/v1/tasks \
 }
 
 
+# get all a users tasks
+## route: "/"
+curl -X GET \
+localhost:3000/api/v1/tasks \
+-H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc2OTkyfQ.iEgWdomqYA3SkFZOiQmSvQPFLSW4kfsHVxA9p-WN8KA" \
+
+
 # get a task
 ## route: "/:taskId"
 

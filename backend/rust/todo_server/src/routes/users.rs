@@ -31,7 +31,7 @@ impl Default for User {
     }
 }
 
-// info returned from db_create_user
+// info returned from database create_user
 #[derive(Serialize, Deserialize)]
 pub struct UserInfo {
     pub id: UserId,
@@ -90,8 +90,9 @@ pub async fn create_user(
     let new_token = create_token(&body.username).unwrap();
     let hashed_password = hash(&body.password, DEFAULT_COST).unwrap();
     let new_user = db
-        .db_create_user(&body.username, &hashed_password, &new_token)
+        .create_user(&body.username, &hashed_password, &new_token)
         .await?;
+    // getDefaultTasks and insertTask(s)
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
 }
@@ -121,11 +122,14 @@ pub async fn login(
     db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, TodoAppError> {
 
-    let result = db.db_get_by_username(&body.username).await;
+    let result = db.get_by_username(&body.username).await;
     if let Some(user) = result {
         let result = verify(&body.password, &user.password);
         if let Ok(valid) = result {
             if valid {
+                // addTokenToUser
+                let login_token = create_token(&body.username).unwrap();
+                db.add_token_to_user(&login_token, user.id).await?;
                 return Ok(HttpResponse::Ok().json(LoginResponse { data: user }));
             }
         }
@@ -155,25 +159,17 @@ pub async fn logout(
     req: HttpRequest,
     db: web::Data<TodoDB>,
 ) -> Result<HttpResponse, TodoAppError> {
-    let token = req.headers().get("x-auth-token");
-    if let Some(t) = token {
-        if let Some(token_string) = t.to_str().ok() {
-            let row_count = db.db_find_and_remove_token(token_string).await?;
-            if row_count == 1 {
-                let response = MessageResponse {
-                    message: "user logged out".to_string(),
-                };
-                return Ok(HttpResponse::Ok().json(response));
-            } else {
-                return Err(TodoAppError {
-                    name: "row_count != 1 from db_find_and_remove_token".to_string(),
-                });
-            }
-        } 
+    if let Some(user) = db.authenticate(&req).await {
+        let row_count = db.find_and_remove_token(&user.token).await?;
+        if row_count == 1 {
+            let response = MessageResponse {
+                message: "user logged out".to_string(),
+            };
+            return Ok(HttpResponse::Ok().json(response));
+        }
     }
-    return Err(TodoAppError {
-        name: "no x-auth-token error".to_string(),
-    });
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST)
+        .body("user not logged in or some other error"))
 }
 
 
