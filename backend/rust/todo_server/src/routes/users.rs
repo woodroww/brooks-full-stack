@@ -1,4 +1,5 @@
 use crate::database::{TodoDB, UserId};
+use crate::routes::tasks::CreateTaskRequest;
 use crate::routes::TodoAppError;
 use actix_web::http::StatusCode;
 use actix_web::{web, Error, HttpRequest, HttpResponse, HttpResponseBuilder};
@@ -8,8 +9,6 @@ use serde::{Deserialize, Serialize};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use jsonwebtoken::{encode, EncodingKey, Header};
 
-// file for sql table creation
-// ../../../../../database/init.sql
 #[derive(Serialize, Deserialize)]
 pub struct User {
     pub id: UserId,
@@ -19,19 +18,6 @@ pub struct User {
     pub token: String,
 }
 
-impl Default for User {
-    fn default() -> Self {
-        Self {
-            id: Default::default(),
-            username: Default::default(),
-            password: Default::default(),
-            deleted_at: Default::default(),
-            token: Default::default(),
-        }
-    }
-}
-
-// info returned from database create_user
 #[derive(Serialize, Deserialize)]
 pub struct UserInfo {
     pub id: UserId,
@@ -92,7 +78,16 @@ pub async fn create_user(
     let new_user = db
         .create_user(&body.username, &hashed_password, &new_token)
         .await?;
-    // getDefaultTasks and insertTask(s)
+    let default_tasks = db.get_default_tasks().await;
+    if let Some(tasks) = default_tasks {
+        for t in tasks {
+            let create_task = CreateTaskRequest {
+                title: t.title,
+                description: t.description,
+            };
+            db.insert_task(&create_task, new_user.id).await;
+        }
+    }
     let response = CreateUserResponse { data: new_user };
     Ok(HttpResponse::Ok().json(response))
 }
@@ -172,7 +167,6 @@ pub async fn logout(
         .body("user not logged in or some other error"))
 }
 
-
 fn create_token(username: &str) -> Result<String, TodoAppError> {
     let secret = dotenv::var("JWT_SECRET");
     match secret {
@@ -189,5 +183,3 @@ fn create_token(username: &str) -> Result<String, TodoAppError> {
         }
     }
 }
-
-

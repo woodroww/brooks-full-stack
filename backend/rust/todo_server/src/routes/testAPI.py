@@ -96,6 +96,20 @@ def get_all_user_tasks(jwt, user_id):
     print(json.dumps(json_response, indent=1))
     print("get_all_user_tasks() passed")
 
+def check_default_tasks(jwt):
+    header = { "x-auth-token": jwt }
+    r = requests.get(
+        f"http://localhost:3010/api/v1/tasks",
+        headers=header)
+    print(f"check_default_tasks() {r.status_code}")
+    assert(r.status_code == requests.codes.ok)
+    json_response = r.json()
+    json_response["data"][0]
+    json_response["data"][1]
+    assert(len(json_response["data"]) == 2)
+    print(json.dumps(json_response, indent=1))
+    print("check_default_tasks() passed")
+
 
 def update_task(jwt, task_id):
     header = { "Content-Type": "application/json", "x-auth-token": jwt }
@@ -143,27 +157,29 @@ def mark_task_uncompleted(jwt, task_id):
     print("mark_task_uncompleted() passed")
 
 
-def test_main():
+def test():
     letters = string.ascii_letters
     user = "".join(random.choices(letters, k=10))
     password = "".join(random.choices(letters, k=10))
     create_user(user, password)
     jwt, user_id = login(user, password)
-
+    check_default_tasks(jwt)
     title = "".join(random.choices(letters, k=10))
     description = "".join(random.choices(letters, k=10))
     task_id = create_task(jwt, title, description)
-    for i in range(5):
+    for i in range(3):
         create_task(jwt, f"{title}_{i}", f"{description}_{i}")
-
     get_all_user_tasks(jwt, user_id)
     get_task(jwt, task_id)
     mark_task_complete(jwt, task_id)
     mark_task_uncompleted(jwt, task_id)
     update_task(jwt, task_id)
-    logout(jwt)
+    return jwt, user, password
 
+# jwt, user, password = test()
 
+# logout(jwt)
 
 if __name__ == "__main__":
-    test_main()
+    jwt, user, password = test()
+    logout(jwt)

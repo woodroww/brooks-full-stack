@@ -1,8 +1,3 @@
-// TODO
-// updateTask - update task like user has changed the text
-// softDeleteTask - set deleted_at to now in db
-// getDefaultTasks - like for a new user to have default tasks as examples
-
 use crate::database::{TaskId, TodoDB, UserId};
 use crate::routes::TodoAppError;
 use actix_web::http::StatusCode;
@@ -143,9 +138,7 @@ pub async fn update_task(
 ) -> Result<HttpResponse, TodoAppError> {
     println!("we are here in the right function");
 
-    if db.authenticate(&req).await.is_some() {
-        //let completed = Some(chrono::Local::now().naive_local());
-        println!("date from request body: {:?}", &body.completed_at);
+    if let Some(user) = db.authenticate(&req).await {
         let update = TaskInfo {
             id: body.id,
             priority: body.priority.clone(),
@@ -153,13 +146,11 @@ pub async fn update_task(
             completed_at: body.completed_at,
             description: body.description.clone(),
         };
-        if let Some(update_result) = db.update_task(&update).await {
+        if let Some(update_result) = db.update_task(&update, user.id).await {
             return Ok(HttpResponse::Ok().json(TaskResponse {
                 data: update_result,
             }));
         }
-    } else {
-        println!("not authenticted");
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
@@ -170,8 +161,10 @@ pub async fn delete_task(
     id: web::Path<TaskId>,
 ) -> Result<HttpResponse, TodoAppError> {
     if let Some(user) = db.authenticate(&req).await {
-        //await softDeleteTask(req.user.id, req.params.taskId);
-        //return res.sendStatus(200);
+        let success = db.soft_delete_task(user.id, *id).await;
+        if success {
+            return Ok(HttpResponseBuilder::new(StatusCode::OK).body("deleted task"));
+        }
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }

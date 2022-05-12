@@ -108,14 +108,12 @@ impl TodoDB {
         true
     }
 
-    pub async fn update_task(&self, task: &TaskInfo) -> Option<TaskInfo> {
-        // probably need to see if the user_id also matches other wise
-        // tasks from other users could be updated 
+    pub async fn update_task(&self, task: &TaskInfo, user_id: UserId) -> Option<TaskInfo> {
         let con = self.pool.get().await.unwrap();
         let sql = r#"
             UPDATE tasks 
             SET (completed_at, priority, title, description) = ($1, $2, $3, $4) 
-            WHERE id = $5 AND deleted_at is NULL 
+            WHERE id = $5 AND deleted_at is NULL AND user_id = $6
             RETURNING id, priority, title, completed_at, description
             "#;
         let err = con
@@ -127,6 +125,7 @@ impl TodoDB {
                     &task.title,
                     &task.description,
                     &task.id,
+                    &user_id,
                 ],
             )
             .await;
@@ -139,7 +138,7 @@ impl TodoDB {
             }
             return None;
         }
-        
+
         let query_result = err.ok().unwrap();
         if query_result.len() == 0 {
             println!("so returning is not returning anything!!!!");
@@ -158,11 +157,52 @@ impl TodoDB {
         }
     }
 
-    fn soft_delete_task(user_id: UserId, task_id: TaskId) {
-        todo!();
+    pub async fn soft_delete_task(&self, user_id: UserId, task_id: TaskId) -> bool {
+        let con = self.pool.get().await.unwrap();
+        let sql = r#"
+            UPDATE tasks 
+            SET (deleted_at) = ($1) 
+            WHERE id = $2 AND user_id = $3 AND deleted_at is NULL
+            "#;
+        let time = chrono::Utc::now().naive_local();
+        let err = con.query(sql, &[&time, &task_id, &user_id]).await;
+        if err.is_err() {
+            let e = err.err().unwrap();
+            if let Some(db_err) = e.as_db_error() {
+                println!("db_get_task error {}", db_err.message().to_string());
+            } else {
+                println!("where is the error");
+            }
+            return false;
+        }
+        true
     }
 
-    fn get_default_tasks() {
-        todo!();
+    pub async fn get_default_tasks(&self) -> Option<Vec<TaskInfo>> {
+        // return db.select().from("tasks").where({ is_default: true });
+        let con = self.pool.get().await.unwrap();
+        let sql = r#" SELECT * FROM tasks WHERE is_default is true"#;
+        let err = con.query(sql, &[]).await;
+        if err.is_err() {
+            let e = err.err().unwrap();
+            if let Some(db_err) = e.as_db_error() {
+                println!("db_get_task error {}", db_err.message().to_string());
+            } else {
+                println!("where is the error");
+            }
+            return None;
+        }
+        let query_result = err.ok().unwrap();
+        let mut tasks = vec![];
+        for row in query_result {
+            tasks.push(TaskInfo {
+                id: row.get("id"),
+                priority: row.get("priority"),
+                title: row.get("title"),
+                completed_at: row.get("completed_at"),
+                description: row.get("description"),
+            });
+        }
+        Some(tasks)
     }
 }

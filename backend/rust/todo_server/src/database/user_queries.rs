@@ -82,14 +82,14 @@ impl TodoDB {
         let sql = "SELECT * FROM users WHERE username = $1 LIMIT 1";
         let result = con.query(sql, &[&username.to_string()]).await;
         if let Ok(r) = result {
-            let mut result = User::default();
             if let Some(user_row) = r.first() {
-                result.id = user_row.get("id");
-                result.username = user_row.get("username");
-                result.password = user_row.get("password");
-                result.deleted_at = user_row.get("deleted_at");
-                result.token = user_row.get("token");
-                return Some(result);
+                return Some(User {
+                    id: user_row.get("id"),
+                    username: user_row.get("username"), 
+                    password: user_row.get("password"),
+                    deleted_at: user_row.get("deleted_at"), 
+                    token: user_row.get("token"),
+                });
             }
         }
         None
