@@ -15,7 +15,8 @@ def create_user(user, password):
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
     print("create_user() data")
-    print(json_response)
+    #print(json_response)
+    print(json.dumps(json_response, indent=1))
     json_response["id"]
     json_response["username"]
     jwt = json_response["token"]
@@ -33,7 +34,8 @@ def login(user, password):
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
     print("login() data")
-    print(json_response)
+    print(json.dumps(json_response, indent=1))
+    #print(json_response)
     json_response["id"]
     json_response["username"]
     jwt = json_response["token"]
@@ -48,6 +50,7 @@ def logout(jwt):
         headers=header)
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["message"]
+    print(json.dumps(json_response, indent=1))
     assert(json_response == "user logged out")
     print("logout() passed")
 
@@ -62,7 +65,8 @@ def create_task(jwt, title, description):
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
     print("create_task() data")
-    print(json_response)
+    print(json.dumps(json_response, indent=1))
+    #print(json_response)
     assert(json_response["title"] == title)
     print("create_task() passed")
     return json_response["id"]
@@ -76,7 +80,8 @@ def get_task(jwt, task_id):
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()["data"]
     print("get_task() data")
-    print(json_response)
+    print(json.dumps(json_response, indent=1))
+    #print(json_response)
     print("get_task() passed")
 
 
@@ -88,8 +93,36 @@ def get_all_user_tasks(jwt, user_id):
     print(f"get_all_user_tasks() {r.status_code}")
     assert(r.status_code == requests.codes.ok)
     json_response = r.json()
-    print(json_response)
+    print(json.dumps(json_response, indent=1))
     print("get_all_user_tasks() passed")
+
+
+def update_task(jwt, task_id):
+    header = { "Content-Type": "application/json", "x-auth-token": jwt }
+    payload = {
+        "id": task_id,
+        "priority": 'A',
+        "title": "Hambones",
+        "completed_at": "2022-05-11T18:45:16.214145",
+        "description": "abcdefghijklmnopqrstuvwxyz"
+    }
+    print(f"update_task() sending:\n {json.dumps(payload)}")
+    r = requests.patch(
+        f"http://localhost:3010/api/v1/tasks/{task_id}",
+        data=json.dumps(payload),
+        headers=header)
+    print(f"update_task() {r.status_code}")
+    assert(r.status_code == requests.codes.ok)
+    json_response = r.json()
+    print("update_task response:")
+    print(json.dumps(json_response, indent=1))
+    json_response = json_response["data"]
+    assert(json_response["id"] == payload["id"])
+    assert(json_response["priority"] == payload["priority"])
+    assert(json_response["title"] == payload["title"])
+    assert(json_response["completed_at"] == payload["completed_at"])
+    assert(json_response["description"] == payload["description"])
+    print("update_task() passed")
 
 
 def mark_task_complete(jwt, task_id):
@@ -127,6 +160,7 @@ def test_main():
     get_task(jwt, task_id)
     mark_task_complete(jwt, task_id)
     mark_task_uncompleted(jwt, task_id)
+    update_task(jwt, task_id)
     logout(jwt)
 
 

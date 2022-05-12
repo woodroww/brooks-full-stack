@@ -6,7 +6,6 @@ use todo_server::database::TodoDB;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-
     let db = TodoDB::new();
     let data = web::Data::new(db);
     HttpServer::new(move || {
@@ -19,6 +18,8 @@ async fn main() -> std::io::Result<()> {
             .route("/tasks", web::post().to(task::create_task))
             .route("/tasks", web::get().to(task::get_all_tasks))
             .route("/tasks/{id}", web::get().to(task::get_task_id))
+            .route("/tasks/{id}", web::patch().to(task::update_task))
+            .route("/tasks/{id}", web::delete().to(task::delete_task))
             .route("/tasks/{id}/completed", web::put().to(task::set_task_completed))
             .route("/tasks/{id}/uncompleted", web::put().to(task::set_task_uncompleted))
         )

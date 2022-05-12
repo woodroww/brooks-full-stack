@@ -24,7 +24,7 @@ to use the app I am working on use this
 ## route: "/" 
 
 curl -X POST \
-localhost:3000/api/v1/users \
+localhost:3010/api/v1/users \
 -H "Content-Type: application/json" \
 --data '{ "username": "woodroww", "password": "myfancypass" }'
 
@@ -42,7 +42,7 @@ localhost:3000/api/v1/users \
 ## route: "/login" 
 
 curl -X POST \
-localhost:3000/api/v1/users/login \
+localhost:3010/api/v1/users/login \
 -H "Content-Type: application/json" \
 --data '{ "username": "woodroww", "password": "myfancypass" }'
 
@@ -69,7 +69,7 @@ localhost:3000/api/v1/users/logout \
 
 
 # create a task
-## route: "/"
+## route: "/" POST
 
 curl -X POST \
 localhost:3000/api/v1/tasks \
@@ -90,14 +90,14 @@ localhost:3000/api/v1/tasks \
 
 
 # get all a users tasks
-## route: "/"
+## route: "/" GET
 curl -X GET \
 localhost:3000/api/v1/tasks \
 -H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc2OTkyfQ.iEgWdomqYA3SkFZOiQmSvQPFLSW4kfsHVxA9p-WN8KA" \
 
 
 # get a task
-## route: "/:taskId"
+## route: "/:taskId" GET
 
 curl -X GET \
 -H "x-auth-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Indvb2Ryb3d3IiwiaWF0IjoxNjUxODc4Mjg1fQ.KMLTPRSfhiKxfeVx4t1bF9VSUb7HsFOAZwwFcrtYLXE" \
@@ -117,6 +117,34 @@ localhost:3000/api/v1/tasks/8
 	}
 }
 
+
+# update a task
+## route: "/:taskId" PATCH
+
+curl --location --request PATCH 'http://localhost:3010/api/v1/tasks/253' \
+--header 'x-auth-token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.InVuaXF1ZV9uYW1lMSI.udg0H21G8eVyG8fO4fr2jisFtz4KtV_TEUIV3HMNQbk' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+        "id": 253,
+        "priority": "A",
+        "title": "Curpatching suxl is fun",
+        "completed_at": null,
+        "description": "dame caca is not super fun typing and stuff in the terminal"
+}'
+
+curl --location --request PATCH 'http://localhost:3010/api/v1/tasks/253' \
+--header 'x-auth-token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.InVuaXF1ZV9uYW1lMSI.udg0H21G8eVyG8fO4fr2jisFtz4KtV_TEUIV3HMNQbk' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+        "id": 253,
+        "priority": "A",
+        "title": "Curpatching suxl is fun",
+        "completed_at": "2022-05-11T18:45:16.123456",
+        "description": "dame caca is not super fun typing and stuff in the terminal"
+}'
+
+# delete a task
+## route: "/:taskId" DELETE
 
 # set task with id as completed
 ## route: "/:taskId/completed"

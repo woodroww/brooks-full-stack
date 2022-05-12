@@ -68,6 +68,49 @@ pub async fn create_task(
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"))
 }
 
+pub async fn get_all_tasks(
+    req: HttpRequest,
+    db: web::Data<TodoDB>,
+) -> Result<HttpResponse, TodoAppError> {
+    if let Some(user) = db.authenticate(&req).await {
+        let result = db.get_all_tasks(user.id).await;
+        if let Some(tasks) = result {
+            return Ok(HttpResponse::Ok().json(TaskListResponse { data: tasks }));
+        }
+    }
+    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
+}
+
+pub async fn set_task_completed(
+    req: HttpRequest,
+    db: web::Data<TodoDB>,
+    id: web::Path<TaskId>,
+) -> Result<HttpResponse, TodoAppError> {
+    if let Some(user) = db.authenticate(&req).await {
+        if db.mark_completed(user.id, *id).await {
+            return Ok(
+                HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner()))
+            );
+        }
+    }
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
+}
+
+pub async fn set_task_uncompleted(
+    req: HttpRequest,
+    db: web::Data<TodoDB>,
+    id: web::Path<TaskId>,
+) -> Result<HttpResponse, TodoAppError> {
+    if let Some(user) = db.authenticate(&req).await {
+        if db.mark_uncompleted(user.id, *id).await {
+            return Ok(
+                HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner()))
+            );
+        }
+    }
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
+}
+
 pub async fn get_task_id(
     req: HttpRequest,
     db: web::Data<TodoDB>,
@@ -86,54 +129,49 @@ pub async fn get_task_id(
             };
             return Ok(HttpResponse::Ok().json(TaskResponse { data: info }));
         } else {
-            return Ok(
-                HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("no such task")
-            );
+            return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("no such task"));
         }
     }
     return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
 }
 
-pub async fn get_all_tasks(
+pub async fn update_task(
     req: HttpRequest,
     db: web::Data<TodoDB>,
+    _id: web::Path<TaskId>,
+    body: web::Json<TaskInfo>,
 ) -> Result<HttpResponse, TodoAppError> {
+    println!("we are here in the right function");
 
-    if let Some(user) = db.authenticate(&req).await {
-        let result = db.get_all_tasks(user.id).await;
-        if let Some(tasks) = result {
-            return Ok(HttpResponse::Ok().json(TaskListResponse { data: tasks }));
+    if db.authenticate(&req).await.is_some() {
+        //let completed = Some(chrono::Local::now().naive_local());
+        println!("date from request body: {:?}", &body.completed_at);
+        let update = TaskInfo {
+            id: body.id,
+            priority: body.priority.clone(),
+            title: body.title.clone(),
+            completed_at: body.completed_at,
+            description: body.description.clone(),
+        };
+        if let Some(update_result) = db.update_task(&update).await {
+            return Ok(HttpResponse::Ok().json(TaskResponse {
+                data: update_result,
+            }));
         }
+    } else {
+        println!("not authenticted");
     }
-    return Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("invalid token"));
+    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
 
-pub async fn set_task_completed(
+pub async fn delete_task(
     req: HttpRequest,
     db: web::Data<TodoDB>,
     id: web::Path<TaskId>,
 ) -> Result<HttpResponse, TodoAppError> {
     if let Some(user) = db.authenticate(&req).await {
-        if db.mark_completed(user.id, *id).await {
-            return Ok(HttpResponse::Ok().body(format!("OK you completed task {}", id.into_inner())));
-        }
+        //await softDeleteTask(req.user.id, req.params.taskId);
+        //return res.sendStatus(200);
     }
     Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
 }
-
-pub async fn set_task_uncompleted(
-    req: HttpRequest,
-    db: web::Data<TodoDB>,
-    id: web::Path<TaskId>,
-) -> Result<HttpResponse, TodoAppError> {
-    if let Some(user) = db.authenticate(&req).await {
-        if db.mark_uncompleted(user.id, *id).await {
-            return Ok(HttpResponse::Ok().body(format!("OK you un-completed task {}", id.into_inner())));
-        }
-    }
-    Ok(HttpResponseBuilder::new(StatusCode::BAD_REQUEST).body("error"))
-}
-
-
-
-
